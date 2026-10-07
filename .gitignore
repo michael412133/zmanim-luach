@@ -1,0 +1,13 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+
+# The release key is restored here by the release workflow and must never be committed.
+signing/
+*.keystore
+*.jks

@@ -1,0 +1,29 @@
+[versions]
+# The Android, Kotlin, Compose and MMD versions match the ones wander's Kompakt apps
+# build with, a combination already known to work on the phone.
+agp = "8.13.1"
+kotlin = "2.2.21"
+mmd = "1.0.2"
+zmanim = "2.5.0"
+
+androidx-activity = "1.12.0"
+androidx-compose = "1.9.5"
+androidx-material3 = "1.4.0"
+
+junit = "4.13.2"
+
+[libraries]
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+compose-foundation = { module = "androidx.compose.foundation:foundation", version.ref = "androidx-compose" }
+compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "androidx-material3" }
+compose-ui = { module = "androidx.compose.ui:ui", version.ref = "androidx-compose" }
+
+mmd = { module = "com.mudita:MMD", version.ref = "mmd" }
+zmanim = { module = "com.kosherjava:zmanim", version.ref = "zmanim" }
+
+junit = { module = "junit:junit", version.ref = "junit" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

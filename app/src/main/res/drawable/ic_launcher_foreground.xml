@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The sun half way over the horizon, the moment most zmanim are counted from.
+     Everything stays inside the 66dp circle that every launcher shape keeps. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- The sun -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M40,63 A14,14 0 0,1 68,63 Z" />
+    <!-- Its rays -->
+    <path
+        android:strokeColor="#000000"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M54,44 L54,37 M67.4,49.6 L72.4,44.6 M40.6,49.6 L35.6,44.6 M71.9,56.5 L78.4,54.1 M36.1,56.5 L29.6,54.1" />
+    <!-- The horizon and the ground under it -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M27,62.5 L81,62.5 L81,65.5 L27,65.5 Z" />
+    <path
+        android:strokeColor="#000000"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M37,72 L71,72 M45,78 L63,78" />
+</vector>
