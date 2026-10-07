@@ -6,9 +6,10 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// The version comes from the release tag (v0.1.0 becomes 0.1.0), which the release workflow
-// passes in as -PappVersion. A build without one is a test build and says so.
-val appVersion: String = (findProperty("appVersion") as String?)?.removePrefix("v") ?: "0.0.0-dev"
+// The version lives in version.txt at the top of the repo. Changing it on main is what
+// publishes a new release (see .github/workflows/release.yml). 0.1.0 becomes code 100,
+// 0.2.0 becomes 200, and so on, so every release can install over the one before.
+val appVersion: String = rootProject.file("version.txt").readText().trim()
 val appVersionCode: Int = appVersion.substringBefore('-').split('.')
     .map { it.toIntOrNull() ?: 0 }
     .plus(listOf(0, 0, 0))

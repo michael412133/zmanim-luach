@@ -33,7 +33,7 @@ https://github.com/michael412133/zmanim-luach/releases/latest/download/zmanim-lu
 
 ## Building
 
-GitHub Actions tests and builds every push to `main`. Pushing a tag like `v0.2.0` builds a signed APK and publishes it as a release, which is what Obtainium picks up.
+GitHub Actions tests and builds every push to `main`. Changing the number in `version.txt` (say to `0.2.0`) builds a signed APK and publishes it as release `v0.2.0`, which is what Obtainium picks up.
 
 ## Credits
 

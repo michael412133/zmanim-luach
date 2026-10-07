@@ -1,20 +1,17 @@
 name: Release
 
-# Pushing a tag like v0.1.0 builds a signed APK and publishes it as a GitHub release, which
-# is what Obtainium watches. The APK always has the same name, so
+# A new version number in version.txt on main builds a signed APK and publishes it as a
+# GitHub release tagged with that number (0.2.0 becomes v0.2.0), which is what Obtainium
+# watches. The APK always has the same name, so
 #   https://github.com/michael412133/zmanim-luach/releases/latest/download/zmanim-luach.apk
 # is a download link that keeps working from one release to the next.
 
 on:
   push:
-    tags:
-      - 'v*'
-  # To build a tag again by hand, if a run failed half way.
+    branches: [main]
+    paths: [version.txt]
+  # To try again by hand if a run failed half way. A version already released is skipped.
   workflow_dispatch:
-    inputs:
-      tag:
-        description: The tag to build, like v0.1.0
-        required: true
 
 permissions:
   contents: write
@@ -27,26 +24,36 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v5
-        with:
-          ref: ${{ inputs.tag || github.ref }}
 
-      - uses: gradle/actions/wrapper-validation@v5
+      - name: Read the version
+        id: version
+        run: |
+          tag="v$(tr -d ' \r\n' < version.txt)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+            echo "$tag is already released, so there is nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.version.outputs.skip != 'true'
+        uses: gradle/actions/wrapper-validation@v5
 
       - name: Set up JDK 21
+        if: steps.version.outputs.skip != 'true'
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Set up Gradle
+        if: steps.version.outputs.skip != 'true'
         uses: gradle/actions/setup-gradle@v5
 
-      # The key and its passwords are one secret: a packed copy of the signing/ folder.
+      # The key and its password are one secret: a packed copy of the signing/ folder.
       - name: Restore the signing key
+        if: steps.version.outputs.skip != 'true'
         env:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
@@ -59,14 +66,17 @@ jobs:
           test -f signing/signing.properties
 
       - name: Test
-        run: ./gradlew --no-daemon :app:testReleaseUnitTest -PappVersion="$TAG"
+        if: steps.version.outputs.skip != 'true'
+        run: ./gradlew --no-daemon :app:testReleaseUnitTest
 
       - name: Build the APK
-        run: ./gradlew --no-daemon :app:assembleRelease -PappVersion="$TAG"
+        if: steps.version.outputs.skip != 'true'
+        run: ./gradlew --no-daemon :app:assembleRelease
 
       # A phone only takes an update signed with the same key as the version it has, so this
       # checks for that exact key before anything is published.
       - name: Check the APK is signed with the app's key
+        if: steps.version.outputs.skip != 'true'
         env:
           EXPECTED: f050311f99c7d03079fd9699be98d3c63538192f7176de1a5ef20641890be7e7
         run: |
@@ -83,10 +93,12 @@ jobs:
           sha256sum zmanim-luach.apk > zmanim-luach.apk.sha256
 
       - name: Publish the release
+        if: steps.version.outputs.skip != 'true'
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ env.TAG }}
-          name: ${{ env.TAG }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.version.outputs.tag }}
           generate_release_notes: true
           files: |
             zmanim-luach.apk
