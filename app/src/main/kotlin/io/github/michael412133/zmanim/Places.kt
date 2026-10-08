@@ -1,5 +1,11 @@
 package io.github.michael412133.zmanim
 
+import kotlin.math.asin
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.sin
+import kotlin.math.sqrt
+
 /**
  * The towns to choose from. Coordinates are from each town's Wikipedia entry; at these
  * distances a hundredth of a degree moves a zman by about two seconds, so the town
@@ -27,4 +33,31 @@ object Places {
     val default: Place = all.first { it.id == "monsey" }
 
     fun byId(id: String?): Place = all.firstOrNull { it.id == id } ?: default
+
+    /** The spot the GPS found. Its time zone is the phone's, taken when the spot was found. */
+    fun gps(latitude: Double, longitude: Double, timeZone: String): Place = Place(
+        id = Place.GPS_ID,
+        name = "My location",
+        latitude = latitude,
+        longitude = longitude,
+        timeZone = timeZone,
+        inIsrael = timeZone == "Asia/Jerusalem" || timeZone == "Asia/Tel_Aviv",
+    )
+
+    /** The town on the list nearest a spot, if one is within [withinKm]. */
+    fun nearest(latitude: Double, longitude: Double, withinKm: Double = 30.0): Place? =
+        all.map { it to distanceKm(latitude, longitude, it.latitude, it.longitude) }
+            .filter { it.second <= withinKm }
+            .minByOrNull { it.second }
+            ?.first
+
+    /** Distance along the ground between two spots, in kilometers. */
+    fun distanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val earthRadiusKm = 6371.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = sin(dLat / 2).pow(2) +
+            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
+        return 2 * earthRadiusKm * asin(sqrt(a))
+    }
 }

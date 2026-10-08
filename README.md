@@ -10,11 +10,13 @@ Today's zmanim and the Hebrew date for the [Mudita Kompakt](https://mudita.com/p
 - Fourteen zmanim from alos to Rabbeinu Tam, with candle lighting on Erev Shabbos and Erev Yom Tov
 - The next zman to come in bold, and the list opens on its page
 - Any day before or after, with the arrows next to the date
-- Towns in Rockland County, Kiryas Joel, Lakewood and Brooklyn
+- A month view like a wall calendar, by English months or Hebrew months, with both dates in every square
+- The whole app in English or in Hebrew, right to left
+- Your location from the phone's GPS, or a town in Rockland County, Kiryas Joel, Lakewood or Brooklyn
 
 ## How the times are worked out
 
-- Everything is calculated on the phone with the [KosherJava zmanim library](https://github.com/KosherJava/zmanim). The app has no permissions and never goes online.
+- Everything is calculated on the phone with the [KosherJava zmanim library](https://github.com/KosherJava/zmanim). The app has no internet permission and never goes online. The only permission it can ask for is location, and only when you choose "My location".
 - Netz and shkia are at sea level, the way most luchos in America print them.
 - Times are rounded to the safe side: a deadline like sof zman krias shema is shown a minute earlier, and a starting time like tzeis a minute later.
 - The results are checked against [Hebcal](https://www.hebcal.com) in the tests (`app/src/test`).

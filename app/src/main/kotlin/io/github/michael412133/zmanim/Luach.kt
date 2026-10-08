@@ -25,6 +25,13 @@ data class Place(
     val inIsrael: Boolean = false,
 ) {
     val zone: ZoneId get() = ZoneId.of(timeZone)
+
+    /** The spot the phone's GPS found, rather than a town from the list. */
+    val isGps: Boolean get() = id == GPS_ID
+
+    companion object {
+        const val GPS_ID = "gps"
+    }
 }
 
 /** Which way a time is rounded to the minute. Always toward the safe side. */
@@ -36,15 +43,37 @@ enum class Rounding {
     Later,
 }
 
-/** One line of the list: what it is, which opinion, and the time already rounded to the minute. */
+/**
+ * Every line the list can show. The words for each, in English and in Hebrew, are in the
+ * app's strings, so this file only says which zman and when.
+ */
+enum class ZmanKind {
+    Alos72,
+    Misheyakir,
+    Netz,
+    SofZmanShmaMGA,
+    SofZmanShmaGRA,
+    SofZmanTfilaMGA,
+    SofZmanTfilaGRA,
+    Chatzos,
+    MinchaGedola,
+    MinchaKetana,
+    PlagHamincha,
+    CandleLighting,
+    CandleLightingAfterTzeis,
+    Shkia,
+    Tzeis,
+    RabbeinuTam,
+}
+
+/** One line of the list, with the time already rounded to the minute. */
 data class Zman(
-    val name: String,
-    val note: String,
+    val kind: ZmanKind,
     /** Null only where the sun never gets that low, which does not happen in these towns. */
     val time: Date?,
 )
 
-/** Everything the screen shows for one day in one place. */
+/** Everything the day's screen shows for one day in one place. */
 data class Day(
     val date: LocalDate,
     /** The Hebrew date in Hebrew letters, like כ״ו תשרי תשפ״ז. */
@@ -77,13 +106,16 @@ object Luach {
         val tonight = jewishCalendar(place, date.plusDays(1))
         val tonightDate = hebrew.formatHebrewNumber(tonight.jewishDayOfMonth) + " " + hebrew.formatMonth(tonight)
 
+        // The daf yomi cycle began in 1923; there is none to show before then.
+        val daf = runCatching { "דף יומי " + hebrew.formatDafYomiBavli(jewish.dafYomiBavli) }.getOrDefault("")
+
         return Day(
             date = date,
             hebrewDate = hebrew.format(jewish),
             tonightHebrewDate = tonightDate,
             special = special,
             parsha = parshaOfTheWeek(place, date, hebrew),
-            daf = "דף יומי " + hebrew.formatDafYomiBavli(jewish.dafYomiBavli),
+            daf = daf,
             zmanim = zmanimFor(zmanim, jewish, date),
             shkia = zmanim.seaLevelSunset,
         )
@@ -102,40 +134,33 @@ object Luach {
 
     private fun zmanimFor(z: ComplexZmanimCalendar, jewish: JewishCalendar, date: LocalDate): List<Zman> {
         val list = mutableListOf<Zman>()
-        fun add(name: String, note: String, time: Date?, rounding: Rounding) {
-            list += Zman(name, note, round(time, rounding))
+        fun add(kind: ZmanKind, time: Date?, rounding: Rounding) {
+            list += Zman(kind, round(time, rounding))
         }
 
-        add("Alos HaShachar", "72 minutes before netz", z.alos72, Rounding.Earlier)
-        add("Misheyakir", "Earliest tallis and tefillin, 11.5°", z.misheyakir11Point5Degrees, Rounding.Later)
-        add("Netz HaChama", "Sunrise", z.seaLevelSunrise, Rounding.Later)
-        add("Sof Zman Krias Shema", "Magen Avraham", z.sofZmanShmaMGA, Rounding.Earlier)
-        add("Sof Zman Krias Shema", "Gra", z.sofZmanShmaGRA, Rounding.Earlier)
-        add("Sof Zman Tefillah", "Magen Avraham", z.sofZmanTfilaMGA, Rounding.Earlier)
-        add("Sof Zman Tefillah", "Gra", z.sofZmanTfilaGRA, Rounding.Earlier)
-        add("Chatzos", "Midday", z.chatzos, Rounding.Earlier)
-        add("Mincha Gedola", "Earliest mincha", z.minchaGedola, Rounding.Later)
-        add("Mincha Ketana", "Gra", z.minchaKetana, Rounding.Later)
-        add("Plag HaMincha", "Gra", z.plagHamincha, Rounding.Later)
+        add(ZmanKind.Alos72, z.alos72, Rounding.Earlier)
+        add(ZmanKind.Misheyakir, z.misheyakir11Point5Degrees, Rounding.Later)
+        add(ZmanKind.Netz, z.seaLevelSunrise, Rounding.Later)
+        add(ZmanKind.SofZmanShmaMGA, z.sofZmanShmaMGA, Rounding.Earlier)
+        add(ZmanKind.SofZmanShmaGRA, z.sofZmanShmaGRA, Rounding.Earlier)
+        add(ZmanKind.SofZmanTfilaMGA, z.sofZmanTfilaMGA, Rounding.Earlier)
+        add(ZmanKind.SofZmanTfilaGRA, z.sofZmanTfilaGRA, Rounding.Earlier)
+        add(ZmanKind.Chatzos, z.chatzos, Rounding.Earlier)
+        add(ZmanKind.MinchaGedola, z.minchaGedola, Rounding.Later)
+        add(ZmanKind.MinchaKetana, z.minchaKetana, Rounding.Later)
+        add(ZmanKind.PlagHamincha, z.plagHamincha, Rounding.Later)
 
         // Candles are lit 18 minutes before shkia on Erev Shabbos and Erev Yom Tov, and also on
         // a Friday that is itself Yom Tov. When Yom Tov follows Shabbos or another day of Yom
         // Tov, they are lit only after tzeis, from a flame that was already burning.
-        if (jewish.hasCandleLighting()) {
-            val beforeShkia = date.dayOfWeek == DayOfWeek.FRIDAY || !jewish.isAssurBemelacha
-            if (beforeShkia) {
-                add("Hadlakas Neiros", "18 minutes before shkia", z.candleLighting, Rounding.Earlier)
-            }
-        }
+        val candles = jewish.hasCandleLighting()
+        val afterTzeis = candles && date.dayOfWeek != DayOfWeek.FRIDAY && jewish.isAssurBemelacha
+        if (candles && !afterTzeis) add(ZmanKind.CandleLighting, z.candleLighting, Rounding.Earlier)
 
-        add("Shkias HaChama", "Sunset", z.seaLevelSunset, Rounding.Earlier)
-        add("Tzeis HaKochavim", "Nightfall, 8.5°", z.tzaisGeonim8Point5Degrees, Rounding.Later)
-
-        if (jewish.hasCandleLighting() && date.dayOfWeek != DayOfWeek.FRIDAY && jewish.isAssurBemelacha) {
-            add("Hadlakas Neiros", "Not before tzeis, from an existing flame", z.tzaisGeonim8Point5Degrees, Rounding.Later)
-        }
-
-        add("Tzeis Rabbeinu Tam", "72 minutes after shkia", z.tzais72, Rounding.Later)
+        add(ZmanKind.Shkia, z.seaLevelSunset, Rounding.Earlier)
+        add(ZmanKind.Tzeis, z.tzaisGeonim8Point5Degrees, Rounding.Later)
+        if (afterTzeis) add(ZmanKind.CandleLightingAfterTzeis, z.tzaisGeonim8Point5Degrees, Rounding.Later)
+        add(ZmanKind.RabbeinuTam, z.tzais72, Rounding.Later)
         return list
     }
 
@@ -151,7 +176,7 @@ object Luach {
         return if (special.isNullOrBlank()) "פרשת $parsha" else "פרשת $parsha · $special"
     }
 
-    private fun jewishCalendar(place: Place, date: LocalDate): JewishCalendar =
+    fun jewishCalendar(place: Place, date: LocalDate): JewishCalendar =
         JewishCalendar(date).apply { setInIsrael(place.inIsrael) }
 
     private fun calendarFor(place: Place, date: LocalDate): ComplexZmanimCalendar {
