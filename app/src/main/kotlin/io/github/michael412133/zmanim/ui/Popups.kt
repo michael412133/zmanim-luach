@@ -77,7 +77,11 @@ fun EInkDialog(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Uni
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         val view = LocalView.current
         SideEffect {
-            (view.parent as? DialogWindowProvider)?.window?.setDimAmount(0f)
+            (view.parent as? DialogWindowProvider)?.window?.apply {
+                setDimAmount(0f)
+                // No sliding in or fading out: on e-ink each frame of that is a smear.
+                setWindowAnimations(0)
+            }
         }
         CompositionLocalProvider(LocalStrings provides strings, LocalLayoutDirection provides direction) {
             Surface(
@@ -214,8 +218,9 @@ fun <T> ChoicePopup(
 @Composable
 fun OpinionsPopup(zman: Zman, day: LocalDate, clock: SimpleDateFormat, onDismiss: () -> Unit) {
     val strings = LocalStrings.current
+    val levana = zman.kind == ZmanKind.KiddushLevanaStart || zman.kind == ZmanKind.KiddushLevanaEnd
     EInkDialog(onDismiss = onDismiss) {
-        PopupTitle(strings.zmanName(zman.kind))
+        PopupTitle(if (levana && zman.kind.group != null) strings.groupName(zman.kind.group) else strings.zmanName(zman.kind))
         zman.opinions.forEach { (opinion, time) ->
             val chosen = opinion == zman.opinion
             Row(
@@ -298,21 +303,29 @@ fun EventPopup(
     onDismiss: () -> Unit,
 ) {
     val strings = LocalStrings.current
-    val focus = LocalFocusManager.current
     var type by remember { mutableStateOf(event.type) }
     var name by remember { mutableStateOf(event.name) }
     var hebrew by remember { mutableStateOf(event.hebrew) }
     var missingName by remember { mutableStateOf(false) }
 
     EInkDialog(onDismiss = onDismiss) {
+        // The pop-up's own window has the name field, so its focus is the one to clear.
+        val focus = LocalFocusManager.current
         PopupTitle(if (isNew) strings.addEvent else strings.editEvent)
         TextMMD(
             text = strings.dayTitle(event.date, withYear = true) + " · " + strings.hebrewDayAndMonth(event.date),
             style = MaterialTheme.typography.labelSmall,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(bottom = 8.dp),
+            modifier = Modifier.padding(bottom = if (hebrew) 2.dp else 8.dp),
         )
+        if (hebrew) {
+            TextMMD(
+                text = strings.afterShkiaHint,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
         EventType.entries.chunked(2).forEach { pair ->
             Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 pair.forEach { option ->
@@ -417,7 +430,8 @@ fun ChecklistPopup(
                         .clickable { off = if (shown) off + kind else off - kind },
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    CheckboxMMD(checked = shown, onCheckedChange = null)
+                    // MMD's checkbox takes the tap itself, so it has to do the same as the row.
+                    CheckboxMMD(checked = shown, onCheckedChange = { checked -> off = if (checked) off - kind else off + kind })
                     Spacer(Modifier.width(8.dp))
                     TextMMD(
                         text = label(kind),

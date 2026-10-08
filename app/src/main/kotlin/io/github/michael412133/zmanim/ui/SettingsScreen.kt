@@ -179,7 +179,7 @@ fun SettingsScreen(
             title = strings.timesToShow,
             items = ZmanKind.toggles,
             hidden = hidden,
-            label = { strings.zmanName(it) },
+            label = { strings.toggleName(it) },
             onSave = onHidden,
             onDismiss = close,
         )

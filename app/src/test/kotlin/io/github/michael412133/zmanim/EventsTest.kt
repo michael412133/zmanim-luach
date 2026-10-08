@@ -133,6 +133,17 @@ class EventsTest {
     }
 
     @Test
+    fun notBeforeTheYearItWasSavedFor() {
+        // Like Hebcal, an event starts in its own year: nothing in the years before.
+        val yahrzeit = Event(5, EventType.Yahrzeit, "x", hebrew = true, date = LocalDate.of(2026, 10, 7)) // 26 Tishrei 5787
+        assertEquals(emptyList<LocalDate>(), Events.hebrewDates(yahrzeit, 5786))
+        assertTrue(!Events.occursOn(yahrzeit, LocalDate.of(2025, 10, 18))) // 26 Tishrei 5786
+        val birthday = Event(6, EventType.Birthday, "x", hebrew = false, date = LocalDate.of(2026, 10, 7))
+        assertTrue(!Events.occursOn(birthday, LocalDate.of(2025, 10, 7)))
+        assertTrue(Events.occursOn(birthday, LocalDate.of(2026, 10, 7)))
+    }
+
+    @Test
     fun savingAndReadingBack() {
         val events = listOf(
             Event(1, EventType.Yahrzeit, "Moshe ben Avraham", true, LocalDate.of(2010, 2, 24), AdarChoice.Both),

@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -230,7 +231,8 @@ fun <T> PagedList(
         val heights = items.map { heightOf?.invoke(it) ?: rowHeight }
         val pageHeight = maxHeight
         val pages = remember(heights, pageHeight) { Paging.pages(heights.map { it.value }, pageHeight.value) }
-        var page by remember(resetKey, pages.size) { mutableIntStateOf(Paging.pageOf(pages, focus)) }
+        // Kept while another screen is opened on top of this one, so Back returns to the same page.
+        var page by rememberSaveable(resetKey, pages.size) { mutableIntStateOf(Paging.pageOf(pages, focus)) }
         val shown = page.coerceIn(0, pages.size - 1)
 
         // The swipe watcher runs for as long as the list is on screen, so it reaches the page

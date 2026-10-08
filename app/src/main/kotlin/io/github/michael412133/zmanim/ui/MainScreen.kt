@@ -159,7 +159,7 @@ fun MainScreen(
         val available = maxHeight - headerHeight - weekdaysHeight - barHeight - 1.dp
         val weeks = if (monthOpen) month.weeks else 1
         // Open, the month takes a little under half of what is left, so the day still shows under it.
-        val cellHeight = if (monthOpen) maxOf(32.dp, minOf(52.dp, available * 0.45f / weeks)) else 46.dp
+        val cellHeight = if (monthOpen) maxOf(34.dp, minOf(52.dp, available * 0.45f / weeks)) else 46.dp
 
         Column(Modifier.fillMaxSize()) {
             CalendarHeader(
@@ -372,20 +372,23 @@ private fun DayCell(
     val small = if (style == MonthStyle.English) cell.hebrewDay else cell.date.dayOfMonth.toString()
     val bigStyle = MaterialTheme.typography.bodyMedium.copy(
         fontSize = if (compact) 15.sp else 17.sp,
-        lineHeight = if (compact) 17.sp else 20.sp,
+        lineHeight = if (compact) 16.sp else 19.sp,
     )
     val smallStyle = MaterialTheme.typography.labelSmall.copy(
         fontSize = if (compact) 11.sp else 12.sp,
         lineHeight = if (compact) 12.sp else 14.sp,
     )
+    // The frame of the day being looked at is drawn over the square, so the dates keep all of its
+    // height. On today's black square it is white inside a black edge, so it still shows.
+    val frame = if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(1.dp)
+            .background(fill, shape)
             .then(if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, shape) else Modifier)
-            .clickable { onPick(cell.date) }
-            .padding(if (isSelected) 3.dp else 1.dp)
-            .background(fill, shape),
+            .then(if (isSelected && isToday) Modifier.padding(2.dp).border(1.dp, frame, shape) else Modifier)
+            .clickable { onPick(cell.date) },
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -495,7 +498,7 @@ private fun DayPanel(
                     } else {
                         val zman = zmanim[index - 1]
                         Box(Modifier.fillMaxWidth().height(lineHeight)) {
-                            ZmanRow(zman, next = zman == next, clock = clock, moladClock = moladClock, onClick = { onZman(zman) })
+                            ZmanRow(zman, day.date, next = zman == next, clock = clock, moladClock = moladClock, onClick = { onZman(zman) })
                             if (index > pages[shown].first) {
                                 DottedDivider(Modifier.align(Alignment.TopCenter).padding(horizontal = 16.dp))
                             }
@@ -528,20 +531,24 @@ private fun Details(
     // The date in the app's own language comes first.
     val (first, second) = if (strings.language == Language.Hebrew) day.hebrewDate to english else english to day.hebrewDate
     Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = lines.padding / 2, bottom = lines.padding / 2)) {
-        Row(Modifier.fillMaxWidth().height(lines.dates), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(lines.dates),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
             TextMMD(
                 text = first,
-                modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
             TextMMD(
                 text = second,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
-                modifier = Modifier.padding(start = 8.dp),
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.End,
+                modifier = Modifier.weight(1f, fill = false).padding(start = 8.dp),
             )
         }
         if (afterShkia) {
@@ -606,6 +613,8 @@ private fun Details(
                 text = strings.placeName(place),
                 style = MaterialTheme.typography.bodySmall,
                 textDecoration = TextDecoration.Underline,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -617,7 +626,14 @@ private fun Details(
  * is in bold with a bar beside it.
  */
 @Composable
-private fun ZmanRow(zman: Zman, next: Boolean, clock: SimpleDateFormat, moladClock: SimpleDateFormat, onClick: () -> Unit) {
+private fun ZmanRow(
+    zman: Zman,
+    date: LocalDate,
+    next: Boolean,
+    clock: SimpleDateFormat,
+    moladClock: SimpleDateFormat,
+    onClick: () -> Unit,
+) {
     val strings = LocalStrings.current
     val weight = if (next) FontWeight.Bold else null
     val molad = zman.molad
@@ -667,12 +683,18 @@ private fun ZmanRow(zman: Zman, next: Boolean, clock: SimpleDateFormat, moladClo
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        TextMMD(
-            text = zman.time?.let { clock.format(it) } ?: "",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = weight,
-            modifier = Modifier.padding(start = 8.dp),
-        )
+        val time = zman.time
+        Column(Modifier.padding(start = 8.dp), horizontalAlignment = Alignment.End) {
+            val otherDay = time?.let { dayOf(zman.kind, it, date, clock) }
+            if (otherDay != null) {
+                TextMMD(text = strings.weekdayShort(otherDay.dayOfWeek), style = MaterialTheme.typography.labelSmall)
+            }
+            TextMMD(
+                text = time?.let { clock.format(it) } ?: "",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = weight,
+            )
+        }
     }
 }
 
@@ -770,4 +792,16 @@ private sealed interface EventStep {
     data class Edit(val event: Event) : EventStep
     data class Adar(val event: Event) : EventStep
     data class Delete(val event: Event) : EventStep
+}
+
+/**
+ * The day of a Kiddush Levana time that is not on the day being shown. Its times go with the
+ * night they are about, so they can be after midnight, and then the day goes over the time,
+ * like "Wed" over "3:23 AM". Chatzos HaLaila is always after midnight, which everyone knows,
+ * so it does not get one.
+ */
+private fun dayOf(kind: ZmanKind, time: Date, date: LocalDate, clock: SimpleDateFormat): LocalDate? {
+    if (kind != ZmanKind.KiddushLevanaStart && kind != ZmanKind.KiddushLevanaEnd) return null
+    val day = time.toInstant().atZone(clock.timeZone.toZoneId()).toLocalDate()
+    return if (day == date) null else day
 }

@@ -186,7 +186,7 @@ object Luach {
             special = special,
             parsha = parshaOfTheWeek(place, date, hebrew),
             daf = daf,
-            zmanim = zmanimFor(calendar, jewish, tonight, date, opinions),
+            zmanim = zmanimFor(calendar, calendarFor(place, date.plusDays(1)), jewish, tonight, date, opinions),
             shkia = calendar.seaLevelSunset,
         )
     }
@@ -223,6 +223,7 @@ object Luach {
 
     private fun zmanimFor(
         z: ComplexZmanimCalendar,
+        zTomorrow: ComplexZmanimCalendar,
         jewish: JewishCalendar,
         tomorrow: JewishCalendar,
         date: LocalDate,
@@ -302,9 +303,27 @@ object Luach {
         if (afterTzeis) add(ZmanKind.CandleLightingAfterTzeis)
         add(ZmanKind.RabbeinuTam)
 
-        // Kiddush Levana's times come only on the day they fall on; KosherJava leaves them out otherwise.
-        kiddushLevana(z, jewish, ZmanKind.KiddushLevanaStart, opinions)?.let { list += it }
-        kiddushLevana(z, jewish, ZmanKind.KiddushLevanaEnd, opinions)?.let { list += it }
+        // Kiddush Levana is said at night, so its times go on the list of the night they are about,
+        // which is how a luach prints them. KosherJava gives each time on the date it falls on; a
+        // start before netz belongs to the night before, and so does an end before tzeis, since
+        // that night was the last one. So this list takes today's times that are not about last
+        // night, and tomorrow's that are about tonight.
+        val sunrise = z.seaLevelSunrise
+        val sunriseTomorrow = zTomorrow.seaLevelSunrise
+        val tzeis = timeOf(z, ZmanKind.Tzeis, opinions[Group.Tzeis])
+        val tzeisTomorrow = timeOf(zTomorrow, ZmanKind.Tzeis, opinions[Group.Tzeis])
+        kiddushLevana(z, jewish, ZmanKind.KiddushLevanaStart, opinions)
+            ?.takeIf { sunrise == null || !it.time!!.before(sunrise) }
+            ?.let { list += it }
+        kiddushLevana(zTomorrow, tomorrow, ZmanKind.KiddushLevanaStart, opinions)
+            ?.takeIf { sunriseTomorrow != null && it.time!!.before(sunriseTomorrow) }
+            ?.let { list += it }
+        kiddushLevana(z, jewish, ZmanKind.KiddushLevanaEnd, opinions)
+            ?.takeIf { tzeis == null || !it.time!!.before(tzeis) }
+            ?.let { list += it }
+        kiddushLevana(zTomorrow, tomorrow, ZmanKind.KiddushLevanaEnd, opinions)
+            ?.takeIf { tzeisTomorrow != null && it.time!!.before(tzeisTomorrow) }
+            ?.let { list += it }
 
         add(ZmanKind.ChatzosHalaila)
 

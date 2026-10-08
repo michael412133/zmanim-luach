@@ -147,18 +147,29 @@ class SpecialDaysTest {
     @Test
     fun kiddushLevana() {
         // Hebcal: the latest time, halfway between the moldos, is October 25 at 9:44pm; exactly 21:44:11.
+        // It is after tzeis, so that night is the last one, and it goes on October 25.
         val end = day(2026, 10, 25)
         assertEquals("21:44", end.at(ZmanKind.KiddushLevanaEnd))
-        // The other opinion is on the next day, and the pop-up shows it with its day.
+        // The other opinion is the next morning, and the pop-up shows it with its day.
         assertEquals("10-26 03:22", end.at(ZmanKind.KiddushLevanaEnd, Opinion.Levana15Days))
-        // 3 days after the molad, which in Monsey's clock was October 11 at 3:22:10am.
-        val start = day(2026, 10, 14)
-        assertEquals("03:23", start.at(ZmanKind.KiddushLevanaStart))
-        assertEquals("10-18 03:23", start.at(ZmanKind.KiddushLevanaStart, Opinion.Levana7Days))
-        assertTrue(!day(2026, 10, 15).has(ZmanKind.KiddushLevanaStart))
-        // With 7 days chosen, the line moves to that day.
-        val seven = Luach.day(monsey, LocalDate.of(2026, 10, 18), Opinions.Default.with(Opinion.Levana7Days))
-        assertEquals("03:23", seven.at(ZmanKind.KiddushLevanaStart))
+        assertTrue(!day(2026, 10, 26).has(ZmanKind.KiddushLevanaEnd))
+        // 3 days after the molad is Wednesday October 14 at 3:22:10am. That is the night after
+        // Tuesday, so it goes on Tuesday's list, after chatzos halaila, and not on Wednesday's.
+        val tuesday = day(2026, 10, 13)
+        assertEquals("10-14 03:23", clock(tuesday.line(ZmanKind.KiddushLevanaStart).time))
+        assertTrue(!day(2026, 10, 14).has(ZmanKind.KiddushLevanaStart))
+        assertEquals(ZmanKind.KiddushLevanaStart, tuesday.zmanim.last().kind)
+        assertEquals("10-18 03:23", tuesday.at(ZmanKind.KiddushLevanaStart, Opinion.Levana7Days))
+        // With 7 days chosen, it is Motzei Shabbos's night.
+        val seven = Luach.day(monsey, LocalDate.of(2026, 10, 17), Opinions.Default.with(Opinion.Levana7Days))
+        assertEquals("10-18 03:23", clock(seven.line(ZmanKind.KiddushLevanaStart).time))
+        // An end in the small hours: the night before is the last one.
+        assertEquals("04-21 02:08", clock(day(2027, 4, 20).line(ZmanKind.KiddushLevanaEnd).time))
+        assertTrue(!day(2027, 4, 21).has(ZmanKind.KiddushLevanaEnd))
+        // An end in the daytime: the night before was the last one too.
+        assertEquals("11-24 09:28", clock(day(2026, 11, 23).line(ZmanKind.KiddushLevanaEnd).time))
+        // A start in the daytime is said from that night, so it stays on its own day.
+        assertEquals("11-12 15:07", clock(day(2026, 11, 12).line(ZmanKind.KiddushLevanaStart).time))
     }
 
     @Test

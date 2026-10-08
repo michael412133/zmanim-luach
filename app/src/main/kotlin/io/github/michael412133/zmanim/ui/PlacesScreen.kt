@@ -143,6 +143,8 @@ fun PlacesScreen(
     val focus = if (current.isGps) 1 else rows.indexOfFirst { it is PlaceRow.Town && it.place.id == current.id }
     val lineHeight = rowHeight(56.dp)
     val headerHeight = rowHeight(40.dp)
+    // My location has room for two lines of news from the GPS under its name.
+    val gpsHeight = rowHeight(76.dp)
 
     Column(
         Modifier
@@ -156,7 +158,13 @@ fun PlacesScreen(
             resetKey = current.id,
             modifier = Modifier.weight(1f),
             focus = focus,
-            heightOf = { if (it is PlaceRow.Header) headerHeight else lineHeight },
+            heightOf = {
+                when (it) {
+                    is PlaceRow.Header -> headerHeight
+                    PlaceRow.MyLocation -> gpsHeight
+                    else -> lineHeight
+                }
+            },
             isHeader = { it is PlaceRow.Header },
         ) { row ->
             when (row) {

@@ -98,11 +98,12 @@ fun EventsScreen(
 /** The next day an event falls on, from today on. */
 private fun nextDate(event: Event, today: LocalDate): LocalDate {
     if (!event.hebrew) {
+        if (event.date.isAfter(today)) return event.date
         val thisYear = Events.englishDate(event, today.year)
         return if (thisYear.isBefore(today)) Events.englishDate(event, today.year + 1) else thisYear
     }
     val year = JewishDate(today).jewishYear
     return (Events.hebrewDates(event, year) + Events.hebrewDates(event, year + 1))
         .filter { !it.isBefore(today) }
-        .minOrNull() ?: today
+        .minOrNull() ?: event.date
 }

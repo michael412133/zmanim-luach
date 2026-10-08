@@ -50,6 +50,10 @@ sealed class Strings {
     abstract fun moladName(monthName: String): String
     abstract fun moladTime(day: DayOfWeek, clock: String, chalakim: Int): String
     abstract fun omerNote(day: Int): String
+    /** The note under a Kiddush Levana line, which says whether it is the start or the end. */
+    abstract fun levanaNote(opinion: Opinion): String
+    /** The name of a line in the list of times to show, which covers every line it hides. */
+    abstract fun toggleName(kind: ZmanKind): String
     abstract val nusachTitle: String
     abstract fun omerEnglish(day: Int): String?
     abstract val otherOpinions: String
@@ -70,6 +74,7 @@ sealed class Strings {
     abstract val hebrewDate: String
     abstract val englishDate: String
     abstract val needsName: String
+    abstract val afterShkiaHint: String
     abstract val deleteQuestion: String
     abstract fun everyYearOn(date: String): String
     abstract val adarTitle: String
@@ -146,6 +151,8 @@ sealed class Strings {
     fun note(zman: Zman): String = when {
         zman.kind == ZmanKind.Omer -> omerNote(zman.omerDay)
         zman.kind == ZmanKind.CandleLightingAfterTzeis -> fixedNote(zman.kind)
+        (zman.kind == ZmanKind.KiddushLevanaStart || zman.kind == ZmanKind.KiddushLevanaEnd) && zman.opinion != null ->
+            levanaNote(zman.opinion)
         zman.opinion != null -> opinionName(zman.opinion)
         else -> fixedNote(zman.kind)
     }
@@ -301,16 +308,15 @@ sealed class Strings {
 
         override fun zmanName(kind: ZmanKind) = when (kind) {
             ZmanKind.Molad -> "Molad"
-            ZmanKind.KiddushLevanaStart -> "Kiddush Levana begins"
-            ZmanKind.KiddushLevanaEnd -> "Kiddush Levana ends"
+            ZmanKind.KiddushLevanaStart, ZmanKind.KiddushLevanaEnd -> "Kiddush Levana"
             ZmanKind.FastBegins, ZmanKind.FastBeginsAtShkia -> "Fast begins"
             ZmanKind.Alos -> "Alos HaShachar"
             ZmanKind.Misheyakir -> "Misheyakir"
             ZmanKind.Netz -> "Netz HaChama"
-            ZmanKind.SofZmanShema -> "Sof Zman Krias Shema"
+            ZmanKind.SofZmanShema -> "Sof Zman Shema"
             ZmanKind.SofZmanTefillah -> "Sof Zman Tefillah"
-            ZmanKind.AchilasChametz -> "Last time to eat chametz"
-            ZmanKind.BiurChametz -> "Last time to burn chametz"
+            ZmanKind.AchilasChametz -> "Eat chametz until"
+            ZmanKind.BiurChametz -> "Burn chametz by"
             ZmanKind.Chatzos -> "Chatzos"
             ZmanKind.MinchaGedola -> "Mincha Gedola"
             ZmanKind.MinchaKetana -> "Mincha Ketana"
@@ -322,7 +328,7 @@ sealed class Strings {
             ZmanKind.FastEnds -> "Fast ends"
             ZmanKind.ShabbosEnds -> "Shabbos ends"
             ZmanKind.YomTovEnds -> "Yom Tov ends"
-            ZmanKind.ShabbosAndYomTovEnd -> "Shabbos and Yom Tov end"
+            ZmanKind.ShabbosAndYomTovEnd -> "Shabbos & YT end"
             ZmanKind.YomKippurEnds -> "Yom Kippur ends"
             ZmanKind.RabbeinuTam -> "Tzeis Rabbeinu Tam"
             ZmanKind.ChatzosHalaila -> "Chatzos HaLaila"
@@ -333,7 +339,7 @@ sealed class Strings {
             ZmanKind.Chatzos -> "Midday"
             ZmanKind.Shkia -> "Sunset"
             ZmanKind.FastBeginsAtShkia -> "At shkia"
-            ZmanKind.CandleLightingAfterTzeis -> "Not before this, from an existing flame"
+            ZmanKind.CandleLightingAfterTzeis -> "After this, from a lit flame"
             ZmanKind.RabbeinuTam -> "72 minutes after shkia"
             ZmanKind.ChatzosHalaila -> "Midnight"
             else -> ""
@@ -342,7 +348,20 @@ sealed class Strings {
         override fun moladName(monthName: String) = "Molad $monthName"
         override fun moladTime(day: DayOfWeek, clock: String, chalakim: Int) =
             days.getValue(day) + " " + clock + if (chalakim == 1) " and 1 chelek" else " and $chalakim chalakim"
-        override fun omerNote(day: Int) = "Tonight is day $day, tap for the nusach"
+        override fun omerNote(day: Int) = "Day $day, tap for the nusach"
+        override fun levanaNote(opinion: Opinion) = when (opinion) {
+            Opinion.Levana3Days -> "From 3 days after the molad"
+            Opinion.Levana7Days -> "From 7 days after the molad"
+            Opinion.Levana15Days -> "Until 15 days after the molad"
+            else -> "Until halfway to next molad"
+        }
+        override fun toggleName(kind: ZmanKind) = when (kind) {
+            ZmanKind.SofZmanShema -> "Sof Zman Krias Shema"
+            ZmanKind.ShabbosEnds -> "Shabbos and Yom Tov end"
+            ZmanKind.FastBegins -> "Fasts begin and end"
+            ZmanKind.AchilasChametz -> "Chametz times on Erev Pesach"
+            else -> zmanName(kind)
+        }
         override val nusachTitle = "Sefiras HaOmer"
         override fun omerEnglish(day: Int): String {
             val weeks = day / 7
@@ -402,7 +421,7 @@ sealed class Strings {
             Opinion.Tzeis7Point083, Opinion.FastEnds7Point083 -> "7.083° below the horizon"
             Opinion.Tzeis50, Opinion.FastEnds50, Opinion.Ends50 -> "50 minutes after shkia"
             Opinion.Ends60 -> "60 minutes after shkia"
-            Opinion.Ends72 -> "72 minutes after shkia, Rabbeinu Tam"
+            Opinion.Ends72 -> "72 minutes, Rabbeinu Tam"
             Opinion.Candles18, Opinion.Candles20, Opinion.Candles22, Opinion.Candles30, Opinion.Candles40 ->
                 "${opinion.candleMinutes} minutes before shkia"
             Opinion.Levana3Days -> "3 days after the molad"
@@ -426,6 +445,7 @@ sealed class Strings {
         override val hebrewDate = "Hebrew date"
         override val englishDate = "English date"
         override val needsName = "Type a name first"
+        override val afterShkiaHint = "If it was after shkia, pick the next day."
         override val deleteQuestion = "Delete this event?"
         override fun everyYearOn(date: String) = "Every year on $date"
         override val adarTitle = "Which Adar?"
@@ -564,9 +584,14 @@ sealed class Strings {
             DayOfWeek.SATURDAY to "שבת קודש",
         )
 
+        // With the year it is written the short way, 30.9.2027, so it still fits beside the Hebrew date.
         override fun dayTitle(date: LocalDate, withYear: Boolean): String =
-            days.getValue(date.dayOfWeek) + ", " + date.dayOfMonth + " ב" + gregorianMonthName(date) +
-                if (withYear) " " + date.year else ""
+            if (withYear) {
+                val day = if (date.dayOfWeek == DayOfWeek.SATURDAY) "שבת" else "יום " + weekdayShort(date.dayOfWeek)
+                day + ", " + date.dayOfMonth + "." + date.monthValue + "." + date.year
+            } else {
+                days.getValue(date.dayOfWeek) + ", " + date.dayOfMonth + " ב" + gregorianMonthName(date)
+            }
 
         override fun englishDayAndMonth(date: LocalDate) = date.dayOfMonth.toString() + " ב" + gregorianMonthName(date)
 
@@ -636,6 +661,14 @@ sealed class Strings {
         override fun moladTime(day: DayOfWeek, clock: String, chalakim: Int) =
             days.getValue(day) + " " + clock + if (chalakim == 1) " וחלק אחד" else " ו־$chalakim חלקים"
         override fun omerNote(day: Int) = "הלילה יום ${hebrewNumber(day)}, לחצו לנוסח"
+        override fun levanaNote(opinion: Opinion) = opinionName(opinion)
+        override fun toggleName(kind: ZmanKind) = when (kind) {
+            ZmanKind.ShabbosEnds -> "מוצאי שבת ויום טוב"
+            ZmanKind.FastBegins -> "תחילת וסוף התעניות"
+            ZmanKind.AchilasChametz -> "זמני חמץ בערב פסח"
+            ZmanKind.KiddushLevanaStart -> "קידוש לבנה"
+            else -> zmanName(kind)
+        }
         override val nusachTitle = "ספירת העומר"
         override fun omerEnglish(day: Int): String? = null
         override val otherOpinions = "כל השיטות"
@@ -683,7 +716,7 @@ sealed class Strings {
             Opinion.Tzeis7Point083, Opinion.FastEnds7Point083 -> "7.083° מתחת לאופק"
             Opinion.Tzeis50, Opinion.FastEnds50, Opinion.Ends50 -> "50 דקות אחרי השקיעה"
             Opinion.Ends60 -> "60 דקות אחרי השקיעה"
-            Opinion.Ends72 -> "72 דקות אחרי השקיעה, רבינו תם"
+            Opinion.Ends72 -> "72 דקות, רבינו תם"
             Opinion.Candles18, Opinion.Candles20, Opinion.Candles22, Opinion.Candles30, Opinion.Candles40 ->
                 "${opinion.candleMinutes} דקות לפני השקיעה"
             Opinion.Levana3Days -> "3 ימים אחרי המולד"
@@ -707,6 +740,7 @@ sealed class Strings {
         override val hebrewDate = "התאריך העברי"
         override val englishDate = "התאריך הלועזי"
         override val needsName = "קודם כתבו שם"
+        override val afterShkiaHint = "אם זה היה אחרי השקיעה, בחרו את היום הבא."
         override val deleteQuestion = "למחוק את האירוע?"
         override fun everyYearOn(date: String) = "כל שנה ב־$date"
         override val adarTitle = "איזה אדר?"

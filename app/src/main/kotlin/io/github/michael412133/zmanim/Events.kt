@@ -46,7 +46,11 @@ data class Event(
 object Events {
 
     fun occursOn(event: Event, day: LocalDate): Boolean =
-        if (event.hebrew) day in hebrewDates(event, JewishDate(day).jewishYear) else englishDate(event, day.year) == day
+        if (event.hebrew) {
+            day in hebrewDates(event, JewishDate(day).jewishYear)
+        } else {
+            day.year >= event.date.year && englishDate(event, day.year) == day
+        }
 
     /** The first choice offered for Adar, matching Hebcal's rules. */
     fun defaultAdar(type: EventType, date: LocalDate): AdarChoice {
@@ -69,9 +73,13 @@ object Events {
         }
     }
 
-    /** The days the event falls on in a Hebrew year: one, or two for "both" in a year with two Adars. */
+    /**
+     * The days the event falls on in a Hebrew year: one, or two for "both" in a year with two
+     * Adars, and none in a year before the one it was saved in, as with Hebcal.
+     */
     fun hebrewDates(event: Event, year: Int): List<LocalDate> {
         val original = JewishDate(event.date)
+        if (year < original.jewishYear) return emptyList()
         val month = original.jewishMonth
         val day = original.jewishDayOfMonth
         val yahrzeit = event.type == EventType.Yahrzeit
