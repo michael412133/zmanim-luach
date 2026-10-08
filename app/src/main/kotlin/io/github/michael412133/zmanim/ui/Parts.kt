@@ -1,18 +1,24 @@
 package io.github.michael412133.zmanim.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -25,22 +31,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.text.TextMMD
+import io.github.michael412133.zmanim.Paging
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-/** The bar under every list: a label on one side, the page buttons on the other. */
-private val FooterHeight = 56.dp
+/**
+ * The light grey of special days and special lines. It is one of the 16 greys the e-ink screen
+ * shows as they are, so it draws as a flat grey instead of a pattern of dots.
+ */
+val Grey = Color(0xFFDDDDDD)
 
 /** A list row's height, grown with the phone's font size so two lines of text always fit. */
 @Composable
@@ -48,6 +60,14 @@ fun rowHeight(base: Dp = 56.dp): Dp = base * max(1f, LocalDensity.current.fontSc
 
 /** Which way a finger moved across the screen. */
 enum class Swipe { Up, Down, Left, Right }
+
+/** Whether a sideways swipe goes forward, to the next day or month. In Hebrew the page reads the other way. */
+fun Swipe.isForward(rightToLeft: Boolean): Boolean =
+    (this == Swipe.Left && !rightToLeft) || (this == Swipe.Right && rightToLeft)
+
+/** Whether a sideways swipe goes back, to the previous day or month. */
+fun Swipe.isBack(rightToLeft: Boolean): Boolean =
+    (this == Swipe.Right && !rightToLeft) || (this == Swipe.Left && rightToLeft)
 
 /**
  * Watches for a swipe and reports which way it went, measured from where the finger first
@@ -138,11 +158,62 @@ fun TitleBar(title: String, onBack: () -> Unit) {
     }
 }
 
+/** A section's name in a list, in bold, with a black rule under it. */
+@Composable
+fun SectionHeader(title: String) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.Bottom) {
+        TextMMD(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        HorizontalDividerMMD(thickness = 1.dp, modifier = Modifier.padding(top = 4.dp, bottom = 2.dp))
+    }
+}
+
+/**
+ * Which page of a list is showing, as a column of rounded segments down the side, one for
+ * each page, with the page showing filled in. Tapping a segment turns to its page.
+ */
+@Composable
+fun SegmentedBar(count: Int, current: Int, onPick: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val ink = MaterialTheme.colorScheme.onSurface
+    val shape = RoundedCornerShape(3.dp)
+    Column(modifier.width(22.dp).padding(vertical = 6.dp)) {
+        for (index in 0 until count) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .clickable { onPick(index) }
+                    .padding(vertical = 3.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier
+                        .width(6.dp)
+                        .fillMaxHeight()
+                        .then(
+                            if (index == current) {
+                                Modifier.background(ink, shape)
+                            } else {
+                                Modifier.border(1.dp, ink, shape)
+                            },
+                        ),
+                )
+            }
+        }
+    }
+}
+
 /**
  * A list that turns a page at a time instead of scrolling, which is what e-ink wants: as many
- * whole rows as fit, dotted lines between them, and the page buttons at the bottom. A swipe up
- * or down turns the page too. It opens on the page holding [focus], and goes back there
- * whenever [resetKey] changes.
+ * whole rows as fit, dotted lines between them, and the segmented bar down the side. A swipe
+ * up or down turns the page too. It opens on the page holding [focus], and goes back there
+ * whenever [resetKey] changes. Rows can have heights of their own through [heightOf], and a
+ * section header gets no dotted line next to it.
  */
 @Composable
 fun <T> PagedList(
@@ -151,62 +222,45 @@ fun <T> PagedList(
     resetKey: Any?,
     modifier: Modifier = Modifier,
     focus: Int = 0,
-    footer: @Composable () -> Unit = {},
+    heightOf: ((T) -> Dp)? = null,
+    isHeader: (T) -> Boolean = { false },
     row: @Composable (T) -> Unit,
 ) {
-    val strings = LocalStrings.current
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        val perPage = max(1, ((maxHeight - FooterHeight) / rowHeight).toInt())
-        val pageCount = max(1, (items.size + perPage - 1) / perPage)
-        var page by remember(resetKey, perPage) {
-            mutableIntStateOf((max(focus, 0) / perPage).coerceIn(0, pageCount - 1))
-        }
-        val shown = page.coerceIn(0, pageCount - 1)
+        val heights = items.map { heightOf?.invoke(it) ?: rowHeight }
+        val pageHeight = maxHeight
+        val pages = remember(heights, pageHeight) { Paging.pages(heights.map { it.value }, pageHeight.value) }
+        var page by remember(resetKey, pages.size) { mutableIntStateOf(Paging.pageOf(pages, focus)) }
+        val shown = page.coerceIn(0, pages.size - 1)
 
         // The swipe watcher runs for as long as the list is on screen, so it reaches the page
-        // through this, which always holds the newest one. (In 0.1.0 it kept the page from when
-        // it started, so after changing the day or town a swipe moved a page nobody saw.)
+        // through this, which always holds the newest one.
         val turn by rememberUpdatedState<(Swipe) -> Unit>({ swipe ->
-            if (swipe == Swipe.Up && shown < pageCount - 1) page = shown + 1
+            if (swipe == Swipe.Up && shown < pages.size - 1) page = shown + 1
             if (swipe == Swipe.Down && shown > 0) page = shown - 1
         })
 
-        Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxSize()) {
             Column(
                 Modifier
-                    .fillMaxWidth()
                     .weight(1f)
+                    .fillMaxHeight()
                     .pointerInput(Unit) { detectSwipes { turn(it) } },
             ) {
-                items.drop(shown * perPage).take(perPage).forEachIndexed { index, item ->
-                    Box(Modifier.fillMaxWidth().height(rowHeight)) {
+                val range = pages[shown]
+                for (index in range) {
+                    val item = items[index]
+                    Box(Modifier.fillMaxWidth().height(heights[index])) {
                         row(item)
-                        if (index > 0) {
+                        val previous = items.getOrNull(index - 1)
+                        if (index > range.first && previous != null && !isHeader(item) && !isHeader(previous)) {
                             DottedDivider(Modifier.align(Alignment.TopCenter).padding(horizontal = 16.dp))
                         }
                     }
                 }
             }
-
-            HorizontalDividerMMD(thickness = 1.dp)
-            Row(
-                modifier = Modifier.fillMaxWidth().height(FooterHeight - 1.dp).padding(start = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.weight(1f)) { footer() }
-                if (pageCount > 1) {
-                    IconAction(
-                        icon = Symbols.Previous,
-                        description = strings.previousPage,
-                        onClick = if (shown > 0) ({ page = shown - 1 }) else null,
-                    )
-                    TextMMD(text = "${shown + 1} / $pageCount", style = MaterialTheme.typography.labelMedium)
-                    IconAction(
-                        icon = Symbols.Next,
-                        description = strings.nextPage,
-                        onClick = if (shown < pageCount - 1) ({ page = shown + 1 }) else null,
-                    )
-                }
+            if (pages.size > 1) {
+                SegmentedBar(pages.size, shown, { page = it }, Modifier.fillMaxHeight())
             }
         }
     }

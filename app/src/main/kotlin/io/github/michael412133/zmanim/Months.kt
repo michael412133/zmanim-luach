@@ -27,8 +27,10 @@ data class MonthCell(
     val date: LocalDate,
     /** The Hebrew day of the month in letters, like כ״ו. */
     val hebrewDay: String,
-    /** Yom Tov (with Chol Hamoed, Chanukah and Purim), Rosh Chodesh or a fast day. */
+    /** Drawn in grey: Yom Tov, Chol Hamoed, a fast, Rosh Chodesh or a day with a name of its own. */
     val marked: Boolean,
+    /** One of the reader's own events falls on it. */
+    val hasEvent: Boolean = false,
 )
 
 object Months {
@@ -65,16 +67,24 @@ object Months {
         }
     }
 
-    fun cells(month: CalendarMonth, inIsrael: Boolean): List<MonthCell> {
+    fun cells(month: CalendarMonth, inIsrael: Boolean, events: List<Event> = emptyList()): List<MonthCell> =
+        cells(month.firstDay, month.length, inIsrael, events)
+
+    /** The squares for [count] days in a row, starting from [first]: a month, or one week. */
+    fun cells(first: LocalDate, count: Int, inIsrael: Boolean, events: List<Event> = emptyList()): List<MonthCell> {
         val hebrew = HebrewDateFormatter().apply { setHebrewFormat(true) }
-        return (0 until month.length).map { offset ->
-            val date = month.firstDay.plusDays(offset.toLong())
+        return (0 until count).map { offset ->
+            val date = first.plusDays(offset.toLong())
             val jewish = JewishCalendar(date).apply { setInIsrael(inIsrael) }
             MonthCell(
                 date = date,
                 hebrewDay = hebrew.formatHebrewNumber(jewish.jewishDayOfMonth),
-                marked = jewish.isYomTov || jewish.isTaanis || jewish.isRoshChodesh,
+                marked = Luach.isMarked(jewish),
+                hasEvent = events.any { Events.occursOn(it, date) },
             )
         }
     }
+
+    /** The Sunday that starts the week a date is in. */
+    fun weekStart(date: LocalDate): LocalDate = date.minusDays((date.dayOfWeek.value % 7).toLong())
 }

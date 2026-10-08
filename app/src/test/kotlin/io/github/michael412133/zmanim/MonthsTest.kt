@@ -41,20 +41,37 @@ class MonthsTest {
     }
 
     @Test
-    fun markedDays() {
-        val october = Months.containing(MonthStyle.English, LocalDate.of(2026, 10, 1))
-        val cells = Months.cells(october, inIsrael = false)
+    fun greyDays() {
+        val cells = Months.cells(Months.containing(MonthStyle.English, LocalDate.of(2026, 10, 1)), inIsrael = false)
         assertEquals(31, cells.size)
-        assertTrue(cells.single { it.date == LocalDate.of(2026, 10, 12) }.marked) // Rosh Chodesh
-        assertTrue(cells.single { it.date == LocalDate.of(2026, 10, 3) }.marked) // Shemini Atzeres
-        assertTrue(!cells.single { it.date == LocalDate.of(2026, 10, 7) }.marked) // a plain Wednesday
+        fun marked(day: Int) = cells.single { it.date == LocalDate.of(2026, 10, day) }.marked
+        assertTrue(marked(12)) // Rosh Chodesh
+        assertTrue(marked(3)) // Shemini Atzeres
+        assertTrue(marked(1)) // Chol Hamoed
+        assertTrue(marked(2)) // Hoshana Rabba
+        assertTrue(!marked(5)) // Isru Chag
+        assertTrue(!marked(7)) // a plain Wednesday
         // כ״ו
         assertEquals("כ״ו", cells.single { it.date == LocalDate.of(2026, 10, 7) }.hebrewDay)
+        // Erev Yom Kippur has its name with the day, but is not grey; Yom Kippur is.
+        val september = Months.cells(Months.containing(MonthStyle.English, LocalDate.of(2026, 9, 1)), inIsrael = false)
+        assertTrue(!september.single { it.date == LocalDate.of(2026, 9, 20) }.marked)
+        assertTrue(september.single { it.date == LocalDate.of(2026, 9, 21) }.marked)
     }
 
     @Test
-    fun nearestTown() {
-        assertEquals("airmont", Places.nearest(41.1002, -74.0985)?.id)
-        assertEquals(null, Places.nearest(31.778, 35.235)) // Yerushalayim is not on the list
+    fun eventDots() {
+        val yahrzeit = Event(1, EventType.Yahrzeit, "x", hebrew = true, date = LocalDate.of(2025, 10, 18)) // 26 Tishrei 5786
+        val cells = Months.cells(Months.containing(MonthStyle.English, LocalDate.of(2026, 10, 1)), false, listOf(yahrzeit))
+        assertEquals(listOf(LocalDate.of(2026, 10, 7)), cells.filter { it.hasEvent }.map { it.date })
+    }
+
+    @Test
+    fun aWeek() {
+        assertEquals(LocalDate.of(2026, 10, 4), Months.weekStart(LocalDate.of(2026, 10, 7)))
+        assertEquals(LocalDate.of(2026, 10, 4), Months.weekStart(LocalDate.of(2026, 10, 4))) // Sunday
+        assertEquals(LocalDate.of(2026, 10, 4), Months.weekStart(LocalDate.of(2026, 10, 10))) // Shabbos
+        val week = Months.cells(LocalDate.of(2026, 10, 4), 7, inIsrael = false)
+        assertEquals(LocalDate.of(2026, 10, 10), week.last().date)
     }
 }

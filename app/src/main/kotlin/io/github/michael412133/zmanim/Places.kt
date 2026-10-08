@@ -7,27 +7,84 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * The towns to choose from. Coordinates are from each town's Wikipedia entry; at these
- * distances a hundredth of a degree moves a zman by about two seconds, so the town
- * center is close enough for every street in it.
+ * The towns to choose from, in the sections the list shows them in.
+ *
+ * Each town's coordinates are the ones printed in its Wikipedia article, with three
+ * exceptions, noted next to them: Wikipedia has no coordinates of its own for the Five Towns,
+ * Beit Shemesh or Petach Tikva. At these distances a hundredth of a degree moves a zman by
+ * about two seconds, so the town center is close enough for every street in it.
  */
 object Places {
 
+    private const val NY = "America/New_York"
+    private const val IL = "Asia/Jerusalem"
+
+    private fun rockland(id: String, name: String, lat: Double, lon: Double) =
+        Place(id, name, lat, lon, NY, region = Region.Rockland)
+
+    private fun newYork(id: String, name: String, lat: Double, lon: Double) =
+        Place(id, name, lat, lon, NY, region = Region.NewYork)
+
+    private fun america(id: String, name: String, lat: Double, lon: Double, zone: String) =
+        Place(id, name, lat, lon, zone, region = Region.America)
+
+    private fun israel(id: String, name: String, lat: Double, lon: Double) =
+        Place(id, name, lat, lon, IL, inIsrael = true, region = Region.Israel)
+
+    private fun europe(id: String, name: String, lat: Double, lon: Double, zone: String) =
+        Place(id, name, lat, lon, zone, region = Region.Europe)
+
     val all: List<Place> = listOf(
-        Place("airmont", "Airmont, NY", 41.09916, -74.10001),
-        Place("monsey", "Monsey, NY", 41.11944, -74.06583),
-        Place("new-hempstead", "New Hempstead, NY", 41.14595, -74.04664),
-        Place("new-square", "New Square, NY", 41.13972, -74.02833),
-        Place("pomona", "Pomona, NY", 41.18650, -74.05542),
-        Place("spring-valley", "Spring Valley, NY", 41.11444, -74.04777),
-        Place("suffern", "Suffern, NY", 41.11194, -74.14583),
-        Place("wesley-hills", "Wesley Hills, NY", 41.15580, -74.07526),
-        Place("kiryas-joel", "Kiryas Joel, NY", 41.34000, -74.16722),
-        Place("lakewood", "Lakewood, NJ", 40.07707, -74.19851),
-        Place("boro-park", "Boro Park, Brooklyn", 40.63389, -73.99306),
-        Place("crown-heights", "Crown Heights, Brooklyn", 40.66940, -73.94240),
-        Place("flatbush", "Flatbush, Brooklyn", 40.64150, -73.95940),
-        Place("williamsburg", "Williamsburg, Brooklyn", 40.70810, -73.95710),
+        rockland("airmont", "Airmont, NY", 41.09916, -74.10001),
+        rockland("monsey", "Monsey, NY", 41.11944, -74.06583),
+        rockland("new-hempstead", "New Hempstead, NY", 41.14595, -74.04664),
+        rockland("new-square", "New Square, NY", 41.13972, -74.02833),
+        rockland("pomona", "Pomona, NY", 41.18650, -74.05542),
+        rockland("spring-valley", "Spring Valley, NY", 41.11444, -74.04777),
+        rockland("suffern", "Suffern, NY", 41.11194, -74.14583),
+        rockland("wesley-hills", "Wesley Hills, NY", 41.15580, -74.07526),
+        rockland("kiryas-joel", "Kiryas Joel, NY", 41.34000, -74.16722),
+        rockland("monroe", "Monroe, NY", 41.32417, -74.18694),
+
+        newYork("boro-park", "Boro Park, Brooklyn", 40.63389, -73.99306),
+        newYork("crown-heights", "Crown Heights, Brooklyn", 40.66940, -73.94240),
+        newYork("flatbush", "Flatbush, Brooklyn", 40.64150, -73.95940),
+        newYork("williamsburg", "Williamsburg, Brooklyn", 40.70810, -73.95710),
+        newYork("queens", "Queens, NY", 40.71361, -73.82806),
+        newYork("far-rockaway", "Far Rockaway, NY", 40.601, -73.757),
+        // Cedarhurst, in the middle of the Five Towns.
+        newYork("five-towns", "Five Towns, NY", 40.62583, -73.72833),
+        newYork("lakewood", "Lakewood, NJ", 40.07707, -74.19851),
+        newYork("passaic", "Passaic, NJ", 40.857552, -74.129089),
+        newYork("teaneck", "Teaneck, NJ", 40.890317, -74.011478),
+
+        america("baltimore", "Baltimore, MD", 39.28944, -76.61528, NY),
+        america("chicago", "Chicago, IL", 41.88194, -87.62778, "America/Chicago"),
+        america("cleveland", "Cleveland, OH", 41.4992, -81.6947, NY),
+        america("los-angeles", "Los Angeles, CA", 34.050, -118.250, "America/Los_Angeles"),
+        america("miami-beach", "Miami Beach, FL", 25.82556, -80.13250, NY),
+        america("toronto", "Toronto, ON", 43.65250, -79.38167, "America/Toronto"),
+        // Montreal keeps the same clock as Toronto, and the time zone database files it there.
+        america("montreal", "Montreal, QC", 45.50889, -73.55417, "America/Toronto"),
+
+        israel("yerushalayim", "Yerushalayim", 31.77889, 35.22556),
+        israel("bnei-brak", "Bnei Brak", 32.083, 34.833),
+        // From GeoNames: Wikipedia's article has no coordinates of its own.
+        israel("beit-shemesh", "Beit Shemesh", 31.73072, 34.99293),
+        israel("modiin-illit", "Modiin Illit", 31.93056, 35.04167),
+        israel("beitar-illit", "Beitar Illit", 31.69778, 35.11556),
+        israel("elad", "Elad", 32.05222, 34.95111),
+        israel("tzfas", "Tzfas", 32.96583, 35.49833),
+        israel("haifa", "Haifa", 32.81917, 34.99917),
+        israel("tel-aviv", "Tel Aviv", 32.08000, 34.78000),
+        israel("netanya", "Netanya", 32.32861, 34.85667),
+        israel("ashdod", "Ashdod", 31.80000, 34.65000),
+        // From GeoNames: Wikipedia's article has no coordinates of its own.
+        israel("petach-tikva", "Petach Tikva", 32.0888, 34.88666),
+
+        europe("london", "London", 51.50722, -0.12750, "Europe/London"),
+        europe("manchester", "Manchester", 53.47944, -2.24528, "Europe/London"),
+        europe("antwerp", "Antwerp", 51.21778, 4.40028, "Europe/Brussels"),
     )
 
     val default: Place = all.first { it.id == "monsey" }
@@ -41,7 +98,7 @@ object Places {
         latitude = latitude,
         longitude = longitude,
         timeZone = timeZone,
-        inIsrael = timeZone == "Asia/Jerusalem" || timeZone == "Asia/Tel_Aviv",
+        inIsrael = timeZone == IL || timeZone == "Asia/Tel_Aviv",
     )
 
     /** The town on the list nearest a spot, if one is within [withinKm]. */
